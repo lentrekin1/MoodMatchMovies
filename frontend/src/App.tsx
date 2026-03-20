@@ -29,16 +29,16 @@ function App(): JSX.Element {
       {/* Search bar (always shown) */}
       <div className="top-text">
         <div className="google-colors">
-          <h1 id="google-4">4</h1>
-          <h1 id="google-3">3</h1>
-          <h1 id="google-0-1">0</h1>
-          <h1 id="google-0-2">0</h1>
+          <h1 id="google-4">Mood</h1>
+          <h1 id="google-3">Match</h1>
+          <h1 id="google-0-1">Movies</h1>
+          <h1 id="google-0-2">!</h1>
         </div>
         <div className="input-box" onClick={() => document.getElementById('search-input')?.focus()}>
           <img src={SearchIcon} alt="search" />
           <input
             id="search-input"
-            placeholder="Search for a Keeping up with the Kardashians episode"
+            placeholder="Tell us the vibe your feeling"
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
             onKeyDown={handleSearch}
