@@ -1,24 +1,25 @@
 import { useState, useEffect } from 'react'
 import './App.css'
 import SearchIcon from './assets/mag.png'
-import { Episode } from './types'
+import { Emotion } from './types'
 import Chat from './Chat'
 
 function App(): JSX.Element {
   const [useLlm, setUseLlm] = useState<boolean | null>(null)
-  const [searchTerm, setSearchTerm] = useState<string>('')
-  const [episodes, setEpisodes] = useState<Episode[]>([])
+  const [searchValue, setSearchValue] = useState("")
+  const [emotions, setEmotions] = useState<Emotion[]>([])
 
   useEffect(() => {
     fetch('/api/config').then(r => r.json()).then(data => setUseLlm(data.use_llm))
   }, [])
 
-  const handleSearch = async (value: string): Promise<void> => {
-    setSearchTerm(value)
-    if (value.trim() === '') { setEpisodes([]); return }
-    const response = await fetch(`/api/episodes?title=${encodeURIComponent(value)}`)
-    const data: Episode[] = await response.json()
-    setEpisodes(data)
+  const handleSearch = async (event: React.KeyboardEvent<HTMLInputElement>): Promise<void> => {
+    if (event.key == "Enter") {
+      const response = await fetch(`/api/movies?title=${encodeURIComponent(searchValue)}`)
+      const data: Emotion[] = await response.json()
+      data.sort(function(emotion1, emotion2){return emotion2.strength - emotion1.strength})
+      setEmotions(data)
+    }
   }
 
   if (useLlm === null) return <></>
@@ -38,25 +39,25 @@ function App(): JSX.Element {
           <input
             id="search-input"
             placeholder="Search for a Keeping up with the Kardashians episode"
-            value={searchTerm}
-            onChange={(e) => handleSearch(e.target.value)}
+            value={searchValue}
+            onChange={(e) => setSearchValue(e.target.value)}
+            onKeyDown={handleSearch}
           />
         </div>
       </div>
 
       {/* Search results (always shown) */}
       <div id="answer-box">
-        {episodes.map((episode, index) => (
+        {emotions.map((emotion, index) => (
           <div key={index} className="episode-item">
-            <h3 className="episode-title">{episode.title}</h3>
-            <p className="episode-desc">{episode.descr}</p>
-            <p className="episode-rating">IMDB Rating: {episode.imdb_rating}</p>
+            <h3 className="episode-title">{emotion.label}</h3>
+            <p className="episode-desc">{emotion.strength}</p>
           </div>
         ))}
       </div>
 
       {/* Chat (only when USE_LLM = True in routes.py) */}
-      {useLlm && <Chat onSearchTerm={handleSearch} />}
+      {/*useLlm && <Chat onSearchTerm={handleSearch} />*/}
     </div>
   )
 }

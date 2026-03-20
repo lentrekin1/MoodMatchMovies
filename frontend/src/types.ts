@@ -1,5 +1,4 @@
-export interface Episode {
-  title: string;
-  descr: string;
-  imdb_rating: number;
+export interface Emotion {
+  strength: number;
+  label: string;
 }

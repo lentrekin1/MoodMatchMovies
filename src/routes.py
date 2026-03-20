@@ -6,31 +6,17 @@ To enable AI chat, set USE_LLM = True below. See llm_routes.py for AI code.
 import json
 import os
 from flask import send_from_directory, request, jsonify
-from models import db, Episode, Review
+from emotions import evaluate
 
 # ── AI toggle ────────────────────────────────────────────────────────────────
 USE_LLM = False
 # USE_LLM = True
 # ─────────────────────────────────────────────────────────────────────────────
 
-
-def json_search(query):
+def emotion_query(query):
     if not query or not query.strip():
-        query = "Kardashian"
-    results = db.session.query(Episode, Review).join(
-        Review, Episode.id == Review.id
-    ).filter(
-        Episode.title.ilike(f'%{query}%')
-    ).all()
-    matches = []
-    for episode, review in results:
-        matches.append({
-            'title': episode.title,
-            'descr': episode.descr,
-            'imdb_rating': review.imdb_rating
-        })
-    return matches
-
+        query = "A terrifying nightmare that leaves you shivering."
+    return evaluate(text=query)
 
 def register_routes(app):
     @app.route('/', defaults={'path': ''})
@@ -44,12 +30,12 @@ def register_routes(app):
     @app.route("/api/config")
     def config():
         return jsonify({"use_llm": USE_LLM})
-
-    @app.route("/api/episodes")
-    def episodes_search():
+    
+    @app.route("/api/movies")
+    def movie_search():
         text = request.args.get("title", "")
-        return jsonify(json_search(text))
+        return jsonify(emotion_query(text))
 
-    if USE_LLM:
-        from llm_routes import register_chat_route
-        register_chat_route(app, json_search)
+    # if USE_LLM:
+    #    from llm_routes import register_chat_route
+    #    register_chat_route(app, json_search)
