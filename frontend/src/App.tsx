@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import './App.css'
 import SearchIcon from './assets/mag.png'
 import { Movie } from './types'
-import Chat from './Chat'
 
 function App(): JSX.Element {
   const [useLlm, setUseLlm] = useState<boolean | null>(null)
