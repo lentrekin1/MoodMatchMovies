@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import './App.css'
 import SearchIcon from './assets/mag.png'
-import { Emotion } from './types'
+import { Movie } from './types'
 import Chat from './Chat'
 
 function App(): JSX.Element {
   const [useLlm, setUseLlm] = useState<boolean | null>(null)
   const [searchValue, setSearchValue] = useState("")
-  const [emotions, setEmotions] = useState<Emotion[]>([])
+  const [pool, setPool] = useState("all")
+  const [movies, setMovies] = useState<Movie[]>([])
 
   useEffect(() => {
     fetch('/api/config').then(r => r.json()).then(data => setUseLlm(data.use_llm))
@@ -15,10 +16,9 @@ function App(): JSX.Element {
 
   const handleSearch = async (event: React.KeyboardEvent<HTMLInputElement>): Promise<void> => {
     if (event.key == "Enter") {
-      const response = await fetch(`/api/movies?title=${encodeURIComponent(searchValue)}`)
-      const data: Emotion[] = await response.json()
-      data.sort(function(emotion1, emotion2){return emotion2.strength - emotion1.strength})
-      setEmotions(data)
+      const response = await fetch(`/api/movies?title=${encodeURIComponent(searchValue)}&pool=${pool}`)
+      const data: Movie[] = await response.json()
+      setMovies(data)
     }
   }
 
@@ -43,15 +43,20 @@ function App(): JSX.Element {
             onChange={(e) => setSearchValue(e.target.value)}
             onKeyDown={handleSearch}
           />
+          <select value={pool} onChange={(e) => setPool(e.target.value)} onClick={(e) => e.stopPropagation()}>
+            <option value="all">IMDB + RT + Letterboxd</option>
+            <option value="top1000">RT + Letterboxd</option>
+            <option value="top250">Letterboxd only</option>
+          </select>
         </div>
       </div>
 
       {/* Search results (always shown) */}
       <div id="answer-box">
-        {emotions.map((emotion, index) => (
+        {movies.map((movie, index) => (
           <div key={index} className="episode-item">
-            <h3 className="episode-title">{emotion.label}</h3>
-            <p className="episode-desc">{emotion.strength}</p>
+            <h3 className="episode-title">{movie.title}</h3>
+            <p className="episode-desc">{movie.source} — {movie.score.toFixed(2)}</p>
           </div>
         ))}
       </div>
