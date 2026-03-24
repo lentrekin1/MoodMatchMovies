@@ -49,6 +49,20 @@ def cosine_search(query_vec, top_k=10, pool="all"):
         if source not in allowed:
             continue
         score = float(np.dot(q, vec) / (q_norm * np.linalg.norm(vec) + 1e-9))
+        if source == "letterboxd":            
+            title_words = title.split('-')
+        else:
+            title_words = title.split(' ')
+        ignored_words = ['the', 'and', 'a', 'of', 'in', 'at', 'to', 'by', 'for', 'an', 'on']
+        new_title = []
+        for i, word in enumerate(title_words):
+            if i == len(title_words) - 1 and word.isdigit():
+                new_title.append('(' + word + ')')
+            elif i == 0 or word not in ignored_words:
+                new_title.append(word.capitalize())
+            else:
+                new_title.append(word)
+        title = ' '.join(new_title)
         results.append({"title": title, "source": source, "score": score})
     results.sort(key=lambda x: x["score"], reverse=True)
     return results[:top_k]
