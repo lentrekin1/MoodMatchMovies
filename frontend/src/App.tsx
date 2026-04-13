@@ -2,6 +2,117 @@ import { useState, useEffect } from 'react'
 import './App.css'
 import SearchIcon from './assets/mag.png'
 
+type EmotionScore = { label: string; score: number }
+
+// Canonical label order — must match the backend EMOTION_LABELS list
+const EMOTION_ORDER = [
+  'admiration','amusement','anger','annoyance','approval','caring',
+  'confusion','curiosity','desire','disappointment','disapproval','disgust',
+  'embarrassment','excitement','fear','gratitude','grief','joy','love',
+  'nervousness','optimism','pride','realization','relief','remorse',
+  'sadness','surprise','neutral',
+]
+
+function RadarChart({
+  queryEmotions,
+  movieEmotions,
+}: {
+  queryEmotions: EmotionScore[]
+  movieEmotions: EmotionScore[]
+}) {
+  const N   = EMOTION_ORDER.length   // 28
+  const vb  = 360
+  const cx  = vb / 2
+  const cy  = vb / 2
+  const R   = 108   // data polygon radius
+  const lR  = R + 16  // label anchor radius
+
+  const movieMap = Object.fromEntries(movieEmotions.map((e) => [e.label, e.score]))
+  const queryMap = Object.fromEntries(queryEmotions.map((e) => [e.label, e.score]))
+
+  // Log scale so low-scoring dimensions aren't crushed near the centre
+  const scale = (s: number) => Math.log1p(s * 9) / Math.log1p(9)
+
+  const rad = (i: number) => (i / N) * 2 * Math.PI - Math.PI / 2
+  const pt  = (i: number, s: number): [number, number] => [
+    cx + R * scale(s) * Math.cos(rad(i)),
+    cy + R * scale(s) * Math.sin(rad(i)),
+  ]
+  const poly = (scores: number[]) =>
+    scores.map((s, i) => pt(i, s).join(',')).join(' ')
+
+  const movieScores = EMOTION_ORDER.map((l) => movieMap[l] ?? 0)
+  const queryScores = EMOTION_ORDER.map((l) => queryMap[l] ?? 0)
+  const rings = [0.25, 0.5, 0.75, 1.0]
+
+  return (
+    <div className="radar-wrap">
+      <svg viewBox={`0 0 ${vb} ${vb}`} className="radar-svg">
+        {/* Grid rings */}
+        {rings.map((r) => (
+          <polygon
+            key={r}
+            points={EMOTION_ORDER.map((_, i) => pt(i, r).join(',')).join(' ')}
+            fill="none"
+            stroke="rgba(255,255,255,0.06)"
+            strokeWidth="0.75"
+          />
+        ))}
+
+        {/* Axis spokes */}
+        {EMOTION_ORDER.map((_, i) => {
+          const [x, y] = pt(i, 1)
+          return (
+            <line key={i} x1={cx} y1={cy} x2={x} y2={y}
+              stroke="rgba(255,255,255,0.06)" strokeWidth="0.75" />
+          )
+        })}
+
+        {/* Movie polygon */}
+        <polygon points={poly(movieScores)}
+          fill="rgba(110,231,183,0.14)" stroke="#6ee7b7"
+          strokeWidth="1.5" strokeLinejoin="round" />
+
+        {/* Query polygon (only when a mood query was used) */}
+        {queryEmotions.length > 0 && (
+          <polygon points={poly(queryScores)}
+            fill="rgba(96,165,250,0.10)" stroke="#60a5fa"
+            strokeWidth="1.5" strokeDasharray="3,2" strokeLinejoin="round" />
+        )}
+
+        {/* Rotated spoke labels */}
+        {EMOTION_ORDER.map((label, i) => {
+          const a   = rad(i)
+          const lx  = cx + lR * Math.cos(a)
+          const ly  = cy + lR * Math.sin(a)
+          // degrees for SVG rotate(); flip left-half labels so they read outward
+          const deg = (i / N) * 360 - 90
+          const flip = Math.cos(a) < -0.05
+          return (
+            <text
+              key={label}
+              transform={`translate(${lx},${ly}) rotate(${flip ? deg + 180 : deg})`}
+              textAnchor={flip ? 'end' : 'start'}
+              dominantBaseline="middle"
+              fontSize="6.8"
+              fill="#64748b"
+            >
+              {label}
+            </text>
+          )
+        })}
+      </svg>
+
+      <div className="radar-legend">
+        <span className="legend-movie">&#9632; film</span>
+        {queryEmotions.length > 0 && (
+          <span className="legend-query">&#9632; your mood</span>
+        )}
+      </div>
+    </div>
+  )
+}
+
 type MovieResult = {
   title: string
   score: number
@@ -13,6 +124,10 @@ type MovieResult = {
   imdbScore?: number | null
   releaseYear?: number | null
   explanation?: string
+  plot?: string
+  director?: string
+  actors?: string
+  emotions?: Array<{ label: string; score: number }>
 }
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -38,6 +153,8 @@ function App() {
   const [topicValue, setTopicValue] = useState('')
   const [moodValue, setMoodValue] = useState('')
   const [movies, setMovies] = useState<MovieResult[]>([])
+  const [queryEmotions, setQueryEmotions] = useState<EmotionScore[]>([])
+  const [selectedMovie, setSelectedMovie] = useState<MovieResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
   const [filtersDirty, setFiltersDirty] = useState(false)
@@ -78,6 +195,12 @@ function App() {
       .catch(() => setUseLlm(false))
   }, [])
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setSelectedMovie(null) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   const toggleFilter = (
     value: string,
     current: string[],
@@ -108,6 +231,7 @@ function App() {
       const response = await fetch(`/api/movies?${params.toString()}`)
       const data = await response.json()
       const rawResults = Array.isArray(data) ? data : (data.results ?? [])
+      setQueryEmotions(Array.isArray(data) ? [] : (data.queryEmotions ?? []))
       if (rawResults.length > 0) {
         const normalized: MovieResult[] = rawResults.map((item: any) => ({
           title: item.title ?? 'Unknown Title',
@@ -120,6 +244,10 @@ function App() {
           imdbScore: item.imdbScore,
           releaseYear: item.releaseYear,
           explanation: item.explanation,
+          plot: item.plot ?? '',
+          director: item.director ?? '',
+          actors: item.actors ?? '',
+          emotions: item.emotions ?? [],
         }))
         normalized.sort((a, b) => b.score - a.score)
         setMovies(normalized)
@@ -418,37 +546,33 @@ function App() {
           </div>
         ) : (
           movies.map((movie, i) => (
-            <div className={`movie-item source-${movie.source}`} key={`${movie.title}-${i}`}>
+            <div
+              className={`movie-item source-${movie.source}`}
+              key={`${movie.title}-${i}`}
+              onClick={() => setSelectedMovie(movie)}
+            >
               {movie.tconst && (
                 <img
                   className="movie-poster"
                   src={`/api/poster/${movie.tconst}`}
                   alt={movie.title}
-                  onError={(e) => {
-                    ;(e.target as HTMLImageElement).style.display = 'none'
-                  }}
+                  onError={(e) => { ;(e.target as HTMLImageElement).style.display = 'none' }}
                 />
               )}
               <div className="movie-info">
                 <div className="movie-title-row">
                   <h2 className="movie-title">{movie.title}</h2>
-                  <div className="movie-score">
-                    {Math.round(movie.score * 100)}% match
-                  </div>
+                  <div className="movie-score">{Math.round(movie.score * 100)}% match</div>
                 </div>
 
                 <div className="movie-subtitle">
                   <span className="movie-details">
                     {[
                       movie.source ? (SOURCE_LABELS[movie.source] ?? movie.source) : null,
-                      ...(movie.genre
-                        ? movie.genre.split(',').slice(0, 2).map((g) => g.trim())
-                        : []),
+                      ...(movie.genre ? movie.genre.split(',').slice(0, 2).map((g) => g.trim()) : []),
                       movie.runtime ? formatRuntime(movie.runtime) : null,
                       movie.releaseYear != null ? String(movie.releaseYear) : null,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
+                    ].filter(Boolean).join(' · ')}
                   </span>
                 </div>
 
@@ -469,16 +593,94 @@ function App() {
                   </div>
                 )}
 
-                <p className="movie-desc">
-                  {movie.explanation ||
-                    'A strong emotional match for your search based on our current retrieval model.'}
-                </p>
+                {movie.director && <p className="movie-director">Dir. {movie.director}</p>}
 
+                {movie.actors && (
+                  <p className="movie-actors">
+                    {movie.actors.split(',').slice(0, 3).map((a) => a.trim()).join(', ')}
+                  </p>
+                )}
+
+                {(movie.plot || movie.explanation) && (
+                  <p className="movie-desc">{movie.plot || movie.explanation}</p>
+                )}
+
+                <div className="card-hint">Click to see emotion breakdown</div>
               </div>
             </div>
           ))
         )}
       </div>
+
+      {/* Modal */}
+      {selectedMovie && (
+        <div className="modal-backdrop" onClick={() => setSelectedMovie(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setSelectedMovie(null)}>✕</button>
+
+            <div className="modal-header">
+              {selectedMovie.tconst && (
+                <img
+                  className="modal-poster"
+                  src={`/api/poster/${selectedMovie.tconst}`}
+                  alt={selectedMovie.title}
+                  onError={(e) => { ;(e.target as HTMLImageElement).style.display = 'none' }}
+                />
+              )}
+              <div className="modal-meta">
+                <div className="modal-title-row">
+                  <h2 className="modal-title">{selectedMovie.title}</h2>
+                  <div className="movie-score">{Math.round(selectedMovie.score * 100)}% match</div>
+                </div>
+
+                <div className="movie-subtitle">
+                  <span className="movie-details">
+                    {[
+                      selectedMovie.source ? (SOURCE_LABELS[selectedMovie.source] ?? selectedMovie.source) : null,
+                      ...(selectedMovie.genre ? selectedMovie.genre.split(',').map((g) => g.trim()) : []),
+                      selectedMovie.runtime ? formatRuntime(selectedMovie.runtime) : null,
+                      selectedMovie.releaseYear != null ? String(selectedMovie.releaseYear) : null,
+                    ].filter(Boolean).join(' · ')}
+                  </span>
+                </div>
+
+                {(selectedMovie.imdbScore != null || selectedMovie.rtScore != null) && (
+                  <div className="movie-scores">
+                    {selectedMovie.imdbScore != null && (
+                      <span className="score-item score-imdb">
+                        <span className="score-label">IMDb</span>
+                        <span className="score-value">{selectedMovie.imdbScore}</span>
+                      </span>
+                    )}
+                    {selectedMovie.rtScore != null && (
+                      <span className="score-item score-rt">
+                        <span className="score-label">RT</span>
+                        <span className="score-value">{selectedMovie.rtScore}%</span>
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {selectedMovie.director && (
+                  <p className="movie-director">Dir. {selectedMovie.director}</p>
+                )}
+                {selectedMovie.actors && (
+                  <p className="movie-actors">{selectedMovie.actors}</p>
+                )}
+                {(selectedMovie.plot || selectedMovie.explanation) && (
+                  <p className="modal-plot">{selectedMovie.plot || selectedMovie.explanation}</p>
+                )}
+              </div>
+            </div>
+
+            {selectedMovie.emotions && selectedMovie.emotions.length > 0 && (
+              <div className="modal-chart">
+                <RadarChart queryEmotions={queryEmotions} movieEmotions={selectedMovie.emotions} />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -31,6 +31,14 @@ def _normalize(title):
 # service number → source name
 SERVICE_SOURCE = {1: "rottentomatoes", 2: "letterboxd", 3: "imdb"}
 
+EMOTION_LABELS = [
+    'admiration', 'amusement', 'anger', 'annoyance', 'approval', 'caring',
+    'confusion', 'curiosity', 'desire', 'disappointment', 'disapproval', 'disgust',
+    'embarrassment', 'excitement', 'fear', 'gratitude', 'grief', 'joy', 'love',
+    'nervousness', 'optimism', 'pride', 'realization', 'relief', 'remorse',
+    'sadness', 'surprise', 'neutral',
+]
+
 # Load metadata for enrichment and filtering
 movie_meta = {}  # normalized_key -> metadata dict
 tconst_to_key = {}  # tconst -> normalized_key
@@ -171,9 +179,12 @@ def register_routes(app):
 
         allowed_sources = {SOURCE_MAP.get(s, s) for s in source_filters} if source_filters else None
 
+        raw_query_emotions = []  # list of {"label", "strength"} – populated when mood query present
+
         if text and topic:
             # ── Combined: emotion + LSA ──────────────────────────────────────
             emotions  = emotion_query(text)
+            raw_query_emotions = emotions
             e_cands   = cosine_search([e["strength"] for e in emotions], top_k=200, pool=pool)
             e_map     = {(r["norm_key"], r["source"]): r["score"] for r in e_cands}
 
@@ -225,8 +236,18 @@ def register_routes(app):
         else:
             # ── Emotion only (original behaviour) ────────────────────────────
             emotions   = emotion_query(text)
+            raw_query_emotions = emotions
             query_vec  = [e["strength"] for e in emotions]
             candidates = cosine_search(query_vec, pool=pool)
+
+        # Build normalised query emotion vector for the response
+        query_emotions_out = []
+        if raw_query_emotions:
+            max_q = max(e["strength"] for e in raw_query_emotions) or 1.0
+            query_emotions_out = [
+                {"label": e["label"], "score": round(e["strength"] / max_q, 3)}
+                for e in raw_query_emotions
+            ]
 
         results = []
         for r in candidates:
@@ -258,6 +279,15 @@ def register_routes(app):
             if rt_min is not None and (rt is None or rt < rt_min):
                 continue
 
+            raw_emo = meta.get("emotions") or []
+            emotion_scores = []
+            if raw_emo:
+                max_val = max(raw_emo) or 1.0
+                emotion_scores = [
+                    {"label": EMOTION_LABELS[i], "score": round(raw_emo[i] / max_val, 3)}
+                    for i in range(min(len(raw_emo), len(EMOTION_LABELS)))
+                ]
+
             results.append({
                 "title":       r["title"],
                 "source":      r["source"],
@@ -268,12 +298,16 @@ def register_routes(app):
                 "imdbScore":   imdb,
                 "rtScore":     rt,
                 "releaseYear": year,
+                "plot":        meta.get("plot") or "",
+                "director":    meta.get("director") or "",
+                "actors":      meta.get("actors") or "",
+                "emotions":    emotion_scores,
             })
 
             if len(results) == 10:
                 break
 
-        return jsonify(results)
+        return jsonify({"results": results, "queryEmotions": query_emotions_out})
 
     # if USE_LLM:
     #    from llm_routes import register_chat_route
