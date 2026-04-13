@@ -12,6 +12,9 @@ from collections import defaultdict
 from pathlib import Path
 from flask import send_from_directory, request, jsonify
 from emotions import evaluate
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.decomposition import TruncatedSVD
+from sklearn.preprocessing import normalize as sk_normalize
 
 # ── AI toggle ────────────────────────────────────────────────────────────────
 USE_LLM = False
@@ -66,6 +69,25 @@ if reviews_zip.exists():
             # Use a composite key when a movie has reviews from multiple sources
             entry_key = f"{norm_key}___{src}"
             movies[entry_key] = (display_title, src, vec)
+
+# Preferred source per movie (for LSA results that aren't source-keyed)
+_SOURCE_PRIORITY = ["letterboxd", "rottentomatoes", "imdb"]
+_norm_key_to_source: dict = {}
+for _entry_key, (_, _src, _) in movies.items():
+    _nk = _entry_key.split("___")[0]
+    if _nk not in _norm_key_to_source:
+        _norm_key_to_source[_nk] = _src
+    elif _SOURCE_PRIORITY.index(_src) < _SOURCE_PRIORITY.index(_norm_key_to_source[_nk]):
+        _norm_key_to_source[_nk] = _src
+
+# Build LSA model (TF-IDF + TruncatedSVD) from movie plot texts
+_lsa_keys = list(movie_meta.keys())
+_lsa_texts = [movie_meta[k].get("plot", "") or "" for k in _lsa_keys]
+_tfidf = TfidfVectorizer(stop_words="english", max_features=5000)
+_svd_model = TruncatedSVD(n_components=100, random_state=42)
+_lsa_matrix_norm = sk_normalize(
+    _svd_model.fit_transform(_tfidf.fit_transform(_lsa_texts))
+)
 
 POOL_SOURCES = {
     "all": {"imdb", "rottentomatoes", "letterboxd"},
@@ -133,8 +155,9 @@ def register_routes(app):
 
     @app.route("/api/movies")
     def movie_search():
-        text = request.args.get("title", "")
-        pool = request.args.get("pool", "all")
+        text  = request.args.get("title", "").strip()   # emotion / mood query
+        topic = request.args.get("topic", "").strip()   # SVD / topic query
+        pool  = request.args.get("pool", "all")
 
         source_filters = set(request.args.getlist("source"))
         genre_filters  = set(request.args.getlist("genre"))
@@ -148,9 +171,62 @@ def register_routes(app):
 
         allowed_sources = {SOURCE_MAP.get(s, s) for s in source_filters} if source_filters else None
 
-        emotions = emotion_query(text)
-        query_vec = [e["strength"] for e in emotions]
-        candidates = cosine_search(query_vec, pool=pool)
+        if text and topic:
+            # ── Combined: emotion + LSA ──────────────────────────────────────
+            emotions  = emotion_query(text)
+            e_cands   = cosine_search([e["strength"] for e in emotions], top_k=200, pool=pool)
+            e_map     = {(r["norm_key"], r["source"]): r["score"] for r in e_cands}
+
+            q_vec  = _tfidf.transform([topic])
+            q_norm = sk_normalize(_svd_model.transform(q_vec))
+            raw    = (_lsa_matrix_norm @ q_norm.T).flatten()
+            top200 = np.argsort(raw)[::-1][:200]
+            l_map  = {_lsa_keys[i]: float(raw[i]) for i in top200}
+
+            all_pairs: set = set(e_map.keys())
+            for nk, lsa_src in ((k, _norm_key_to_source.get(k)) for k in l_map):
+                if lsa_src:
+                    all_pairs.add((nk, lsa_src))
+
+            candidates = sorted(
+                [
+                    {
+                        "norm_key": nk,
+                        "source":   src,
+                        "score":    0.5 * e_map.get((nk, src), 0.0) + 0.5 * l_map.get(nk, 0.0),
+                        "title":    _format_title(movie_meta.get(nk, {}).get("title", nk)),
+                    }
+                    for nk, src in all_pairs
+                ],
+                key=lambda x: x["score"],
+                reverse=True,
+            )[:200]
+
+        elif topic:
+            # ── LSA only ─────────────────────────────────────────────────────
+            q_vec  = _tfidf.transform([topic])
+            q_norm = sk_normalize(_svd_model.transform(q_vec))
+            raw    = (_lsa_matrix_norm @ q_norm.T).flatten()
+            top200 = np.argsort(raw)[::-1][:200]
+            allowed_pool = POOL_SOURCES.get(pool, POOL_SOURCES["all"])
+            candidates = []
+            for i in top200:
+                nk  = _lsa_keys[i]
+                src = _norm_key_to_source.get(nk)
+                if src is None or src not in allowed_pool:
+                    continue
+                candidates.append({
+                    "norm_key": nk,
+                    "source":   src,
+                    "score":    float(raw[i]),
+                    "title":    _format_title(movie_meta.get(nk, {}).get("title", nk)),
+                })
+
+        else:
+            # ── Emotion only (original behaviour) ────────────────────────────
+            emotions   = emotion_query(text)
+            query_vec  = [e["strength"] for e in emotions]
+            candidates = cosine_search(query_vec, pool=pool)
 
         results = []
         for r in candidates:

@@ -69,7 +69,6 @@
   background: #1e293b;
   display: flex;
   align-items: center;
-  margin-top: 12px;
   padding: 14px 18px;
   width: 720px;
   max-width: 100%;
@@ -104,6 +103,40 @@
 
 .input-box input::placeholder {
   color: #94a3b8;
+}
+
+/* ── Dual search ───────────────────────────────────────────────────────────── */
+
+.dual-search {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 720px;
+  max-width: 100%;
+  margin-top: 12px;
+}
+
+.dual-search-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dual-search-label {
+  font-size: 0.7rem;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 600;
+  min-width: 62px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.dual-search-row .input-box {
+  flex: 1;
+  margin-top: 0;
 }
 
 /* ── Filters ───────────────────────────────────────────────────────────────── */

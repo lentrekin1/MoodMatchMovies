@@ -35,7 +35,8 @@ function formatRuntime(mins: number): string {
 
 function App() {
   const [useLlm, setUseLlm] = useState<boolean | null>(null)
-  const [searchValue, setSearchValue] = useState('')
+  const [topicValue, setTopicValue] = useState('')
+  const [moodValue, setMoodValue] = useState('')
   const [movies, setMovies] = useState<MovieResult[]>([])
   const [loading, setLoading] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
@@ -89,12 +90,13 @@ function App() {
     }
   }
 
-  const doSearch = async (query: string): Promise<void> => {
-    if (!query.trim()) return
+  const doSearch = async (topic: string, mood: string): Promise<void> => {
+    if (!topic.trim() && !mood.trim()) return
     setLoading(true)
     try {
       const params = new URLSearchParams()
-      params.append('title', query.trim())
+      if (topic.trim()) params.append('topic', topic.trim())
+      if (mood.trim()) params.append('title', mood.trim())
       sourceFilters.forEach((v) => params.append('source', v))
       genreFilters.forEach((v) => params.append('genre', v))
       if (yearRange[0] > YEAR_MIN) params.append('yearMin', String(yearRange[0]))
@@ -105,8 +107,9 @@ function App() {
       if (imdbMin > 0) params.append('imdbMin', String(imdbMin))
       const response = await fetch(`/api/movies?${params.toString()}`)
       const data = await response.json()
-      if (Array.isArray(data)) {
-        const normalized: MovieResult[] = data.map((item: any) => ({
+      const rawResults = Array.isArray(data) ? data : (data.results ?? [])
+      if (rawResults.length > 0) {
+        const normalized: MovieResult[] = rawResults.map((item: any) => ({
           title: item.title ?? 'Unknown Title',
           score: typeof item.score === 'number' ? item.score : 0,
           tconst: item.tconst,
@@ -137,28 +140,27 @@ function App() {
   }, [sourceFilters, genreFilters, yearRange, runtimeRange, rtMin, imdbMin])
 
   useEffect(() => {
-    if (!searchValue.trim()) {
+    if (!topicValue.trim() && !moodValue.trim()) {
       setMovies([])
       setHasSearched(false)
       setFiltersDirty(false)
     }
-  }, [searchValue])
+  }, [topicValue, moodValue])
 
   const handleSearch = (event: React.KeyboardEvent<HTMLInputElement>): void => {
     if (event.key !== 'Enter') return
-    const trimmed = searchValue.trim()
-    if (!trimmed) {
+    if (!topicValue.trim() && !moodValue.trim()) {
       setMovies([])
       return
     }
     setHasSearched(true)
     setFiltersDirty(false)
-    doSearch(trimmed)
+    doSearch(topicValue, moodValue)
   }
 
   const handleApply = (): void => {
     setFiltersDirty(false)
-    doSearch(searchValue)
+    doSearch(topicValue, moodValue)
   }
 
   // Dual range fill percentages
@@ -179,24 +181,43 @@ function App() {
           <h1 id="google-0-2">!</h1>
         </div>
         <p className="subtitle">
-          Describe the feeling or vibe you want, and we'll suggest movies that match it.
+          Describe what it's about, how it should feel, or both.
         </p>
       </div>
 
-      <div
-        className="input-box"
-        onClick={() => document.getElementById('search-input')?.focus()}
-      >
-        <img src={SearchIcon} alt="search" />
-        <input
-          id="search-input"
-          placeholder="Tell us the vibe you're feeling"
-          value={searchValue}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-            setSearchValue(e.target.value)
-          }
-          onKeyDown={handleSearch}
-        />
+      <div className="dual-search">
+        <div className="dual-search-row">
+          <span className="dual-search-label">about</span>
+          <div
+            className="input-box"
+            onClick={() => document.getElementById('topic-input')?.focus()}
+          >
+            <img src={SearchIcon} alt="search" />
+            <input
+              id="topic-input"
+              placeholder="heist, space travel, found family…"
+              value={topicValue}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTopicValue(e.target.value)}
+              onKeyDown={handleSearch}
+            />
+          </div>
+        </div>
+        <div className="dual-search-row">
+          <span className="dual-search-label">feels like</span>
+          <div
+            className="input-box"
+            onClick={() => document.getElementById('mood-input')?.focus()}
+          >
+            <img src={SearchIcon} alt="search" />
+            <input
+              id="mood-input"
+              placeholder="dark and tense, warm and cozy…"
+              value={moodValue}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setMoodValue(e.target.value)}
+              onKeyDown={handleSearch}
+            />
+          </div>
+        </div>
       </div>
 
       <div className="filter-panel">
@@ -392,8 +413,8 @@ function App() {
           <div className="empty-state">Searching for matching movies...</div>
         ) : movies.length === 0 ? (
           <div className="empty-state">
-            Try a search like "dark psychological movie that makes me think" or
-            "comforting movie for a rainy night."
+            Try "heist" + "tense and thrilling", or just one field on its own
+            like "space travel" or "warm and nostalgic."
           </div>
         ) : (
           movies.map((movie, i) => (
@@ -452,6 +473,7 @@ function App() {
                   {movie.explanation ||
                     'A strong emotional match for your search based on our current retrieval model.'}
                 </p>
+
               </div>
             </div>
           ))
