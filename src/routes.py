@@ -84,7 +84,7 @@ for _entry_key, (_, _src, _) in movies.items():
 _lsa_keys = list(movie_meta.keys())
 _lsa_texts = [movie_meta[k].get("plot", "") or "" for k in _lsa_keys]
 _tfidf = TfidfVectorizer(stop_words="english", max_features=5000)
-_svd_model = TruncatedSVD(n_components=100, random_state=42)
+_svd_model = TruncatedSVD(n_components=64, random_state=1)
 _lsa_matrix_norm = sk_normalize(
     _svd_model.fit_transform(_tfidf.fit_transform(_lsa_texts))
 )
