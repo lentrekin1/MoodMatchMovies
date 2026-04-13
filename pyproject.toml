@@ -14,6 +14,7 @@ dependencies = [
     "numpy>=2.4.3",
     "onnxruntime>=1.24.3",
     "python-dotenv>=1.2.2",
+    "scikit-learn>=1.8.0",
     "sqlalchemy==2.0.36",
     "tokenizers>=0.22.2",
     "werkzeug==2.2.2",
