@@ -67,28 +67,31 @@ def init_db():
 init_db()
 
 # Extract posters
-print("Unzipping posters...")
 poster_dir = os.path.join(project_root, 'assets', 'posters')
 zip_path = os.path.join(project_root, 'assets', 'posters.zip')
 if not os.path.isdir(poster_dir):
-    with zipfile.ZipFile(zip_path, 'r') as zf:
-        for member in zf.infolist():
-            name = member.filename
+    if os.path.exists(zip_path):
+        print("Unzipping posters...")
+        with zipfile.ZipFile(zip_path, 'r') as zf:
+            for member in zf.infolist():
+                name = member.filename
 
-            if name.endswith('/'):
-                continue
+                if name.endswith('/'):
+                    continue
 
-            if not name.startswith("posters/"):
-                continue
+                if not name.startswith("posters/"):
+                    continue
 
-            relative_path = name[len("posters/"):]
-            target_path = os.path.join(poster_dir, relative_path)
+                relative_path = name[len("posters/"):]
+                target_path = os.path.join(poster_dir, relative_path)
 
-            os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                os.makedirs(os.path.dirname(target_path), exist_ok=True)
 
-            with zf.open(member) as source, open(target_path, "wb") as target:
-                target.write(source.read())
-print("Posters unzipped.")
+                with zf.open(member) as source, open(target_path, "wb") as target:
+                    target.write(source.read())
+        print("Posters unzipped.")
+    else:
+        print("posters.zip not found, skipping poster extraction.")
 
 if __name__ == '__main__':
     app.run(debug=True, host="0.0.0.0", port=5001)
