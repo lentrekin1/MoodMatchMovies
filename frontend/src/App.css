@@ -1,4 +1,5 @@
 .full-body-container {
+  position: relative;
   min-height: 100vh;
   width: 100%;
   display: flex;
@@ -10,55 +11,114 @@
   box-sizing: border-box;
 }
 
+/* Atmospheric spotlight at the top of the page */
+.full-body-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 900px;
+  height: 440px;
+  background: radial-gradient(
+    ellipse 55% 55% at 50% 8%,
+    rgba(251, 191, 36, 0.06) 0%,
+    rgba(96, 165, 250, 0.04) 45%,
+    transparent 75%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Film grain across the full page */
+.full-body-container::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  opacity: 0.028;
+  pointer-events: none;
+  z-index: 0;
+}
+
 /* ── Header ────────────────────────────────────────────────────────────────── */
 
 .top-text {
-  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 24px;
+  text-align: center;
+  width: 100%;
+  padding: 56px 20px 44px;
+  margin-bottom: 0;
+  box-sizing: border-box;
 }
 
-.top-text::before {
-  content: '';
-  position: absolute;
-  top: -20px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 600px;
-  height: 200px;
-  background: radial-gradient(ellipse at center, rgba(96, 165, 250, 0.07) 0%, transparent 70%);
-  pointer-events: none;
+.top-text, .dual-search, .filter-panel, .results-area, .modal-backdrop {
+  position: relative;
+  z-index: 1;
 }
 
-.google-colors {
+.title-card {
+  position: relative;
+  z-index: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  font-size: 64px;
-  font-family: 'Open Sans', sans-serif;
-  font-weight: 800;
-  letter-spacing: -2px;
-  line-height: 1;
-}
-
-.google-colors h1 {
   margin: 0;
-  margin-right: 4px;
 }
 
-#google-4   { color: #fbbf24; }
-#google-3   { color: #60a5fa; }
-#google-0-1 { color: #34d399; }
-#google-0-2 { color: #f87171; }
+.title-card__mood,
+.title-card__match {
+  display: block;
+  font-family: 'Kanit', sans-serif;
+  font-weight: 800;
+  font-size: 80px;
+  line-height: 1.02;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #f0f4ff;
+  text-shadow:
+    0 0 16px rgba(251, 191, 36, 0.3),
+    0 0 56px rgba(251, 191, 36, 0.12),
+    0 0 110px rgba(96, 165, 250, 0.1);
+}
+
+.title-card__mood  { animation: reveal 1.8s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both; }
+.title-card__match { animation: reveal 1.8s cubic-bezier(0.16, 1, 0.3, 1) 0.35s both; }
+
+.title-card__movies {
+  display: block;
+  font-family: 'Kanit', sans-serif;
+  font-weight: 800;
+  font-size: 80px;
+  line-height: 1.02;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #f0f4ff;
+  margin-top: 0;
+  animation: reveal 1.8s cubic-bezier(0.16, 1, 0.3, 1) 0.65s both;
+}
+
+@keyframes reveal {
+  from { opacity: 0; transform: scale(1.06); }
+  to   { opacity: 1; transform: scale(1); }
+}
 
 .subtitle {
-  margin-top: 12px;
-  font-size: 18px;
-  color: #cbd5e1;
+  position: relative;
+  z-index: 1;
+  margin-top: 28px;
+  font-size: 16px;
+  color: #64748b;
   font-family: 'Montserrat', sans-serif;
+  font-weight: 400;
   text-align: center;
-  max-width: 700px;
+  max-width: 520px;
+  letter-spacing: 0.03em;
+  line-height: 1.6;
+  animation: reveal 1.8s cubic-bezier(0.16, 1, 0.3, 1) 1s both;
 }
 
 /* ── Search bar ────────────────────────────────────────────────────────────── */
@@ -721,14 +781,19 @@
 /* ── Responsive ────────────────────────────────────────────────────────────── */
 
 @media (max-width: 768px) {
-  .google-colors {
-    font-size: 42px;
-    flex-wrap: wrap;
-    justify-content: center;
+  .title-card__mood,
+  .title-card__match {
+    font-size: 52px;
+    letter-spacing: 0.16em;
+  }
+
+  .title-card__movies {
+    font-size: 52px;
+    letter-spacing: 0.16em;
   }
 
   .subtitle {
-    font-size: 15px;
+    font-size: 14px;
   }
 
   .input-box {
