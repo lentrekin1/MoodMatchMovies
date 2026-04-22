@@ -302,15 +302,12 @@ function App() {
   return (
     <div className={`full-body-container ${useLlm ? 'llm-mode' : ''}`}>
       <div className="top-text">
-        <div className="google-colors">
-          <h1 id="google-4">Mood</h1>
-          <h1 id="google-3">Match</h1>
-          <h1 id="google-0-1">Movies</h1>
-          <h1 id="google-0-2">!</h1>
-        </div>
-        <p className="subtitle">
-          Describe what it's about, how it should feel, or both.
-        </p>
+        <h1 className="title-card" aria-label="MoodMatch Movies">
+          <span className="title-card__mood">Mood</span>
+          <span className="title-card__match">Match</span>
+          <span className="title-card__movies">Movies</span>
+        </h1>
+        <p className="subtitle">Describe what it's about, how it should feel, or both.</p>
       </div>
 
       <div className="dual-search">
