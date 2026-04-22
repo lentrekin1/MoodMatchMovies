@@ -31,3 +31,5 @@ package-lock.json
 .env
 
 assets/posters
+src/data/reviews
+reviews.zip

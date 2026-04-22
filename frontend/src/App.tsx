@@ -6,11 +6,11 @@ type EmotionScore = { label: string; score: number }
 
 // Canonical label order — must match the backend EMOTION_LABELS list
 const EMOTION_ORDER = [
-  'admiration','amusement','anger','annoyance','approval','caring',
-  'confusion','curiosity','desire','disappointment','disapproval','disgust',
-  'embarrassment','excitement','fear','gratitude','grief','joy','love',
-  'nervousness','optimism','pride','realization','relief','remorse',
-  'sadness','surprise','neutral',
+    'amusement', 'anger', 'caring',
+    'confusion', 'curiosity', 'desire', 'disgust',
+    'embarrassment', 'excitement', 'fear', 'gratitude', 'grief', 'joy', 'love',
+    'nervousness', 'optimism', 'pride', 'realization', 'remorse',
+    'sadness', 'surprise'
 ]
 
 function RadarChart({
@@ -20,7 +20,7 @@ function RadarChart({
   queryEmotions: EmotionScore[]
   movieEmotions: EmotionScore[]
 }) {
-  const N   = EMOTION_ORDER.length   // 28
+  const N   = EMOTION_ORDER.length   // 21
   const vb  = 360
   const cx  = vb / 2
   const cy  = vb / 2
@@ -117,7 +117,6 @@ type MovieResult = {
   title: string
   score: number
   tconst?: string
-  source?: string
   genre?: string
   runtime?: number
   rtScore?: number | null
@@ -128,12 +127,6 @@ type MovieResult = {
   director?: string
   actors?: string
   emotions?: Array<{ label: string; score: number }>
-}
-
-const SOURCE_LABELS: Record<string, string> = {
-  imdb: 'IMDb',
-  rottentomatoes: 'Rotten Tomatoes',
-  letterboxd: 'Letterboxd',
 }
 
 const YEAR_MIN = 1924
@@ -160,7 +153,6 @@ function App() {
   const [filtersDirty, setFiltersDirty] = useState(false)
 
   // Pill filters
-  const [sourceFilters, setSourceFilters] = useState<string[]>([])
   const [genreFilters, setGenreFilters] = useState<string[]>([])
 
   // Range filters
@@ -172,7 +164,6 @@ function App() {
   const yearActive = yearRange[0] > YEAR_MIN || yearRange[1] < YEAR_MAX
   const runtimeActive = runtimeRange[0] > RUNTIME_MIN || runtimeRange[1] < RUNTIME_MAX
   const anyActiveFilters =
-    sourceFilters.length > 0 ||
     genreFilters.length > 0 ||
     yearActive ||
     runtimeActive ||
@@ -180,7 +171,6 @@ function App() {
     imdbMin > 0
 
   const clearAllFilters = () => {
-    setSourceFilters([])
     setGenreFilters([])
     setYearRange([YEAR_MIN, YEAR_MAX])
     setRuntimeRange([RUNTIME_MIN, RUNTIME_MAX])
@@ -220,7 +210,6 @@ function App() {
       const params = new URLSearchParams()
       if (topic.trim()) params.append('topic', topic.trim())
       if (mood.trim()) params.append('title', mood.trim())
-      sourceFilters.forEach((v) => params.append('source', v))
       genreFilters.forEach((v) => params.append('genre', v))
       if (yearRange[0] > YEAR_MIN) params.append('yearMin', String(yearRange[0]))
       if (yearRange[1] < YEAR_MAX) params.append('yearMax', String(yearRange[1]))
@@ -237,7 +226,6 @@ function App() {
           title: item.title ?? 'Unknown Title',
           score: typeof item.score === 'number' ? item.score : 0,
           tconst: item.tconst,
-          source: item.source,
           genre: item.genre,
           runtime: item.runtime,
           rtScore: item.rtScore,
@@ -265,7 +253,7 @@ function App() {
   useEffect(() => {
     if (hasSearched) setFiltersDirty(true)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sourceFilters, genreFilters, yearRange, runtimeRange, rtMin, imdbMin])
+  }, [genreFilters, yearRange, runtimeRange, rtMin, imdbMin])
 
   useEffect(() => {
     if (!topicValue.trim() && !moodValue.trim()) {
@@ -349,28 +337,6 @@ function App() {
       </div>
 
       <div className="filter-panel">
-        {/* Source — pills */}
-        <div className="filter-row">
-          <span className="filter-label">Sources</span>
-          <div className="filter-pills">
-            {(
-              [
-                ['imdb', 'IMDb'],
-                ['rt', 'Rotten Tomatoes'],
-                ['letterboxd', 'Letterboxd'],
-              ] as [string, string][]
-            ).map(([value, label]) => (
-              <button
-                key={value}
-                className={`filter-pill source-pill-${value}${sourceFilters.includes(value) ? ' active' : ''}`}
-                onClick={() => toggleFilter(value, sourceFilters, setSourceFilters)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-
         {/* Genre — pills */}
         <div className="filter-row">
           <span className="filter-label">Genre</span>
@@ -547,7 +513,7 @@ function App() {
         ) : (
           movies.map((movie, i) => (
             <div
-              className={`movie-item source-${movie.source}`}
+              className={`movie-item`}
               key={`${movie.title}-${i}`}
               onClick={() => setSelectedMovie(movie)}
             >
@@ -568,7 +534,6 @@ function App() {
                 <div className="movie-subtitle">
                   <span className="movie-details">
                     {[
-                      movie.source ? (SOURCE_LABELS[movie.source] ?? movie.source) : null,
                       ...(movie.genre ? movie.genre.split(',').slice(0, 2).map((g) => g.trim()) : []),
                       movie.runtime ? formatRuntime(movie.runtime) : null,
                       movie.releaseYear != null ? String(movie.releaseYear) : null,
@@ -636,7 +601,6 @@ function App() {
                 <div className="movie-subtitle">
                   <span className="movie-details">
                     {[
-                      selectedMovie.source ? (SOURCE_LABELS[selectedMovie.source] ?? selectedMovie.source) : null,
                       ...(selectedMovie.genre ? selectedMovie.genre.split(',').map((g) => g.trim()) : []),
                       selectedMovie.runtime ? formatRuntime(selectedMovie.runtime) : null,
                       selectedMovie.releaseYear != null ? String(selectedMovie.releaseYear) : null,

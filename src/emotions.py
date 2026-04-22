@@ -26,17 +26,31 @@ session = ort.InferenceSession(
     providers=["CPUExecutionProvider"]
 )
 
-labels = ['admiration', 'amusement', 'anger', 'annoyance', 'approval', 'caring', 'confusion', 'curiosity', 'desire', 'disappointment', 'disapproval', 'disgust', 'embarrassment', 'excitement', 'fear', 'gratitude', 'grief', 'joy', 'love', 'nervousness', 'optimism', 'pride', 'realization', 'relief', 'remorse', 'sadness', 'surprise', 'neutral']
+EMOTION_LABELS = [
+    'amusement', 'anger', 'caring',
+    'confusion', 'curiosity', 'desire', 'disgust',
+    'embarrassment', 'excitement', 'fear', 'gratitude', 'grief', 'joy', 'love',
+    'nervousness', 'optimism', 'pride', 'realization', 'remorse',
+    'sadness', 'surprise'
+]
 
+prunes = [0, 3, 4, 9, 10, 23, 27]
+
+# Remove the unused labels, e.g., 'neutral', from the transformer response
+def prune_np_vector(vec, inds):
+    return np.array([el for ind, el in enumerate(vec.tolist()) if not ind in inds])
+
+# Take a text string and return a normalized numpy array of length 21 representing the emotions of the text
 def evaluate(text):
     enc = tokenizer.encode(text)
     inputs = {
         "input_ids": np.array([enc.ids], dtype=np.int64),
         "attention_mask": np.array([enc.attention_mask], dtype=np.int64),
     }
-    outputs = session.run(None, inputs)[0]
+    outputs = session.run(None, inputs)[0][0]
     def sigmoid(x):
         return 1.0 / (1.0 + np.exp(-x))
-    scores = sigmoid(outputs)
-    res = [{"strength": float(scores[0][i]), "label": labels[i]} for i in range(len(scores[0]))]
-    return res
+    scores = prune_np_vector(sigmoid(outputs), prunes)
+    sn = np.linalg.norm(scores)
+    scores = scores / sn
+    return scores

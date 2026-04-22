@@ -68,11 +68,11 @@ init_db()
 
 # Extract posters
 poster_dir = os.path.join(project_root, 'assets', 'posters')
-zip_path = os.path.join(project_root, 'assets', 'posters.zip')
+poster_zip_path = os.path.join(project_root, 'assets', 'posters.zip')
 if not os.path.isdir(poster_dir):
-    if os.path.exists(zip_path):
+    if os.path.exists(poster_zip_path):
         print("Unzipping posters...")
-        with zipfile.ZipFile(zip_path, 'r') as zf:
+        with zipfile.ZipFile(poster_zip_path, 'r') as zf:
             for member in zf.infolist():
                 name = member.filename
 
@@ -92,6 +92,33 @@ if not os.path.isdir(poster_dir):
         print("Posters unzipped.")
     else:
         print("posters.zip not found, skipping poster extraction.")
+
+# Extract reviews
+reviews_dir = os.path.join(project_root, 'src', 'data', 'reviews')
+review_zip_path = os.path.join(project_root, 'reviews.zip')
+if not os.path.isdir(reviews_dir):
+    if os.path.exists(review_zip_path):
+        print("Unzipping reviews...")
+        with zipfile.ZipFile(review_zip_path, 'r') as zf:
+            for member in zf.infolist():
+                name = member.filename
+
+                if name.endswith('/'):
+                    continue
+
+                if not name.startswith("reviews/"):
+                    continue
+
+                relative_path = name[len("reviews/"):]
+                target_path = os.path.join(reviews_dir, relative_path)
+
+                os.makedirs(os.path.dirname(target_path), exist_ok=True)
+
+                with zf.open(member) as source, open(target_path, "wb") as target:
+                    target.write(source.read())
+        print("Reviews unzipped.")
+    else:
+        print("reviews.zip not found, skipping review extraction.")
 
 if __name__ == '__main__':
     app.run(debug=True, host="0.0.0.0", port=5001)
