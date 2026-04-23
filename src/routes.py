@@ -11,10 +11,11 @@ import numpy as np
 from collections import defaultdict
 from flask import send_from_directory, request, jsonify
 from search import movie_search_
+from llm import llm_search
 
 # ── AI toggle ────────────────────────────────────────────────────────────────
-USE_LLM = False
-# USE_LLM = True
+# USE_LLM = False
+USE_LLM = True
 # ─────────────────────────────────────────────────────────────────────────────
 
 current_directory = os.path.dirname(os.path.abspath(__file__))
@@ -52,8 +53,7 @@ def register_routes(app):
 
     @app.route("/api/movies")
     def movie_search():
-        return movie_search_(films, request, data_dir)
-    
-    # if USE_LLM:
-    #    from llm_routes import register_chat_route
-    #    register_chat_route(app, json_search)
+        if USE_LLM:
+            return llm_search(request, films)
+        else:
+            return movie_search_(films, "", "", request)
