@@ -43,7 +43,10 @@ def emotion_query(query_text):
 
 # Search the reviews for a film by emotion and svd vectors
 def reviews_search(tconst, em, svd, data_dir, rel_weight=0.5):
-    with open(os.path.join(data_dir, 'reviews', tconst + ".json"), "r", encoding="utf-8") as f:
+    review_path = os.path.join(data_dir, 'reviews', tconst + ".json")
+    if not os.path.exists(review_path):
+        return []
+    with open(review_path, "r", encoding='utf-8') as f:
         reviews = json.load(f)
     results = []
     if em is not None and svd is not None:

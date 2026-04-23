@@ -2,7 +2,7 @@ import json
 import os
 from dotenv import load_dotenv
 from flask import Flask
-from models import db, Film
+# from models import db, Film
 import zipfile
 
 load_dotenv()
@@ -20,15 +20,16 @@ app = Flask(__name__,
 CORS(app)
 
 # Configure SQLite database - using 3 slashes for relative path
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data.db'
+# app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize database with app
-db.init_app(app)
+# db.init_app(app)
 
 # Register routes
 register_routes(app)
 
+'''
 # Function to initialize database, change this to your own database initialization logic
 def init_db():
     with app.app_context():
@@ -65,6 +66,7 @@ def init_db():
             db.session.commit()
             print("Database initialized with film data")
 init_db()
+'''
 
 # Extract posters
 poster_dir = os.path.join(project_root, 'assets', 'posters')
