@@ -44,20 +44,25 @@ def emotion_query(query_text):
 # Search the reviews for a film by emotion and svd vectors
 def reviews_search(tconst, em, svd, data_dir, rel_weight=0.5):
     review_path = os.path.join(data_dir, 'reviews', tconst + ".json")
+
     if not os.path.exists(review_path):
         return []
-    with open(review_path, "r", encoding='utf-8') as f:
+
+    with open(review_path, "r", encoding="utf-8") as f:
         reviews = json.load(f)
-    results = []
+
     if em is not None and svd is not None:
-        results = [(r["t"], rel_weight * np.dot(em, r["v"]) + (1 - rel_weight) * np.dot(svd, r["svd"])) for r in reviews]
+        results = [
+            (r["t"], rel_weight * np.dot(em, r["v"]) + (1 - rel_weight) * np.dot(svd, r["svd"]))
+            for r in reviews
+        ]
     elif em is not None:
         results = [(r["t"], np.dot(em, r["v"])) for r in reviews]
     else:
-        results = [(r["t"], np.dot(svd, r["v"])) for r in reviews]
+        results = [(r["t"], np.dot(svd, r["svd"])) for r in reviews]
+
     results.sort(key=lambda x: x[1], reverse=True)
     return results[:10]
-
 # Search the films using a text, topic, and filters. Films should be a dictionary keyed by tconst.
 def movie_search_(films, request, data_dir):
     text  = request.args.get("title", "").strip()   # emotion / mood query
