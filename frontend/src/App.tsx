@@ -119,14 +119,15 @@ type MovieResult = {
   tconst?: string
   genre?: string
   runtime?: number
-  rtScore?: number | null
   imdbScore?: number | null
+  rtScore?: number | null
   releaseYear?: number | null
-  explanation?: string
   plot?: string
   director?: string
   actors?: string
   emotions?: Array<{ label: string; score: number }>
+  reviews?: Array<{ review_text: string, score: number}>
+  reason?: string
 }
 
 const YEAR_MIN = 1924
@@ -219,6 +220,7 @@ function App() {
       if (imdbMin > 0) params.append('imdbMin', String(imdbMin))
       const response = await fetch(`/api/movies?${params.toString()}`)
       const data = await response.json()
+      console.log(data)
       const rawResults = Array.isArray(data) ? data : (data.results ?? [])
       setQueryEmotions(Array.isArray(data) ? [] : (data.queryEmotions ?? []))
       if (rawResults.length > 0) {
@@ -231,7 +233,7 @@ function App() {
           rtScore: item.rtScore,
           imdbScore: item.imdbScore,
           releaseYear: item.releaseYear,
-          explanation: item.explanation,
+          reason: item.reason,
           plot: item.plot ?? '',
           director: item.director ?? '',
           actors: item.actors ?? '',
@@ -563,8 +565,8 @@ function App() {
                   </p>
                 )}
 
-                {(movie.plot || movie.explanation) && (
-                  <p className="movie-desc">{movie.plot || movie.explanation}</p>
+                {(movie.plot || movie.reason) && (
+                  <p className="movie-desc">{movie.plot || movie.reason}</p>
                 )}
 
                 <div className="card-hint">Click to see emotion breakdown</div>
@@ -628,8 +630,8 @@ function App() {
                 {selectedMovie.actors && (
                   <p className="movie-actors">{selectedMovie.actors}</p>
                 )}
-                {(selectedMovie.plot || selectedMovie.explanation) && (
-                  <p className="modal-plot">{selectedMovie.plot || selectedMovie.explanation}</p>
+                {(selectedMovie.plot || selectedMovie.reason) && (
+                  <p className="modal-plot">{selectedMovie.plot || selectedMovie.reason}</p>
                 )}
               </div>
             </div>

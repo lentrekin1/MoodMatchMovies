@@ -1,9 +1,13 @@
 import numpy as np
-from flask import jsonify
 from emotions import evaluate, EMOTION_LABELS
 from svd import svd_search
 import json
 import os
+from flask import jsonify
+
+current_directory = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_directory)
+data_dir = os.path.join(project_root, 'src', 'data')
 
 # Format the lowercased title of a film
 def _format_title(raw_title):
@@ -42,7 +46,7 @@ def emotion_query(query_text):
     return evaluate(query_text)
 
 # Search the reviews for a film by emotion and svd vectors
-def reviews_search(tconst, em, svd, data_dir, rel_weight=0.5):
+def reviews_search(tconst, em, svd, rel_weight=0.5):
     review_path = os.path.join(data_dir, 'reviews', tconst + ".json")
 
     if not os.path.exists(review_path):
@@ -62,11 +66,13 @@ def reviews_search(tconst, em, svd, data_dir, rel_weight=0.5):
         results = [(r["t"], np.dot(svd, r["svd"])) for r in reviews]
 
     results.sort(key=lambda x: x[1], reverse=True)
-    return results[:10]
+    return [{"trimmed_text": r[0][:1000], "score": r[1]} for r in results[:10]]
 # Search the films using a text, topic, and filters. Films should be a dictionary keyed by tconst.
-def movie_search_(films, request, data_dir):
-    text  = request.args.get("title", "").strip()   # emotion / mood query
-    topic = request.args.get("topic", "").strip()   # SVD / topic query
+def movie_search_(films, topic, text, request, llm_pipeline=False):
+
+    if not llm_pipeline: # If not using llm to augment query, just get it from requests
+        text  = request.args.get("title", "").strip()   # emotion / mood query
+        topic = request.args.get("topic", "").strip()   # SVD / topic query
 
     genre_filters  = set(request.args.getlist("genre"))
     year_min    = request.args.get("yearMin",    type=int)
@@ -143,11 +149,10 @@ def movie_search_(films, request, data_dir):
         raw_emo = films[r_tconst]["emotions"]
         emotion_scores = [{"label": EMOTION_LABELS[i], "score": e} for i, e in enumerate(raw_emo)]
         
-        top_matching_reviews = reviews_search(r_tconst, emotions, q_emb, data_dir)
+        top_matching_reviews = reviews_search(r_tconst, emotions, q_emb)
 
         results.append({
             "title":       r[0],
-            "source":      "imdb",
             "score":       r[1],
             "tconst":      r_tconst,
             "genre":       genres,
@@ -165,4 +170,8 @@ def movie_search_(films, request, data_dir):
         if len(results) == 10:
             break
 
-    return jsonify({"results": results, "queryEmotions": query_emotions_out, "query_svd_out": query_svd_out})
+    results_obj = {"results": results, "queryEmotions": query_emotions_out, "query_svd_out": query_svd_out}
+    if not llm_pipeline:
+        return jsonify(results_obj)
+    else:
+        return results_obj
