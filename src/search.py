@@ -87,7 +87,7 @@ def movie_search_(films, request, data_dir):
 
         union_keys = set(e_cands.keys()).union(set(svd_cands.keys()))
         
-        def combine_scores(em_score, svd_score, rel_weight=0.5):
+        def combine_scores(em_score, svd_score, rel_weight=0.4):
             return rel_weight * em_score + (1 - rel_weight) * svd_score
         
         combined = []
