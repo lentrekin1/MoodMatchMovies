@@ -88,6 +88,7 @@ def llm_search(request, films):
 
     client = LLMClient(api_key=api_key)
     augmented_query = llm_augment_query(client, {"topic": topic, "emotion": emotion})
+    print(augmented_query)
 
     ir_response = movie_search_(films, augmented_query["topic"], augmented_query["emotion"], request, True)
 
@@ -120,6 +121,7 @@ def llm_search(request, films):
 
     response = client.chat(messages)
     content = (response.get("content") or "").strip()
+    print(content)
     try:
         res = json.loads(content)
         matches = []
