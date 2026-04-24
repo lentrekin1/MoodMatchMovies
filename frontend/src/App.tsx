@@ -1,8 +1,64 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import './App.css'
 import SearchIcon from './assets/mag.png'
 
 type EmotionScore = { label: string; score: number }
+
+const TIP_W = 264
+
+function InfoTip({ title, body }: { title: string; body: string }) {
+  const [open, setOpen] = useState(false)
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const [pos, setPos] = useState({ top: 0, left: 0, arrowLeft: 0 })
+
+  const toggle = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect()
+      const btnMid = r.left + r.width / 2
+      const rawLeft = btnMid - TIP_W / 2
+      const left = Math.max(12, Math.min(rawLeft, window.innerWidth - TIP_W - 12))
+      setPos({ top: r.bottom + 10, left, arrowLeft: btnMid - left })
+    }
+    setOpen((v) => !v)
+  }
+
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open])
+
+  return (
+    <>
+      <button
+        className="info-tip-btn"
+        ref={btnRef}
+        onClick={toggle}
+        aria-label={`Info: ${title}`}
+        aria-expanded={open}
+      >
+        i
+      </button>
+      {open && createPortal(
+        <>
+          <div className="info-tip-backdrop" onClick={() => setOpen(false)} />
+          <div
+            className="info-tip-card"
+            style={{ top: pos.top, left: pos.left, '--arrow-left': `${pos.arrowLeft}px` } as React.CSSProperties}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <strong className="info-tip-title">{title}</strong>
+            <p className="info-tip-body">{body}</p>
+          </div>
+        </>,
+        document.body
+      )}
+    </>
+  )
+}
 
 // Canonical label order — must match the backend EMOTION_LABELS list
 const EMOTION_ORDER = [
@@ -130,6 +186,7 @@ type MovieResult = {
   reason?: string
 }
 
+
 const YEAR_MIN = 1924
 const YEAR_MAX = 2025
 const RUNTIME_MIN = 0
@@ -144,9 +201,11 @@ function formatRuntime(mins: number): string {
 
 function App() {
   const [useLlm, setUseLlm] = useState<boolean | null>(null)
+  const [llmSuccess, setLlmSuccess] = useState<boolean | null>(null)
   const [topicValue, setTopicValue] = useState('')
   const [moodValue, setMoodValue] = useState('')
   const [movies, setMovies] = useState<MovieResult[]>([])
+  const [visibleCount, setVisibleCount] = useState(20)
   const [queryEmotions, setQueryEmotions] = useState<EmotionScore[]>([])
   const [selectedMovie, setSelectedMovie] = useState<MovieResult | null>(null)
   const [loading, setLoading] = useState(false)
@@ -218,11 +277,11 @@ function App() {
       if (runtimeRange[1] < RUNTIME_MAX) params.append('runtimeMax', String(runtimeRange[1]))
       if (rtMin > 0) params.append('rtMin', String(rtMin))
       if (imdbMin > 0) params.append('imdbMin', String(imdbMin))
-      const response = await fetch(`/api/movies?${params.toString()}`)
+const response = await fetch(`/api/movies?${params.toString()}`)
       const data = await response.json()
-      console.log(data)
       const rawResults = Array.isArray(data) ? data : (data.results ?? [])
       setQueryEmotions(Array.isArray(data) ? [] : (data.queryEmotions ?? []))
+      setLlmSuccess(typeof data.llm_success === 'boolean' ? data.llm_success : null)
       if (rawResults.length > 0) {
         const normalized: MovieResult[] = rawResults.map((item: any) => ({
           title: item.title ?? 'Unknown Title',
@@ -241,8 +300,10 @@ function App() {
         }))
         normalized.sort((a, b) => b.score - a.score)
         setMovies(normalized)
+        setVisibleCount(20)
       } else {
         setMovies([])
+        setVisibleCount(20)
       }
     } catch (error) {
       console.error('Search failed:', error)
@@ -302,7 +363,13 @@ function App() {
 
       <div className="dual-search">
         <div className="dual-search-row">
-          <span className="dual-search-label">about</span>
+          <span className="dual-search-label">
+            about
+            <InfoTip
+              title="Topic Search"
+              body="Finds movies with matching plot and subject matter. Try keywords like 'heist', 'space travel', or 'found family'."
+            />
+          </span>
           <div
             className="input-box"
             onClick={() => document.getElementById('topic-input')?.focus()}
@@ -318,7 +385,13 @@ function App() {
           </div>
         </div>
         <div className="dual-search-row">
-          <span className="dual-search-label">feels like</span>
+          <span className="dual-search-label">
+            feels like
+            <InfoTip
+              title="Mood Search"
+              body="Uses AI analysis to match the emotional tone of your description. Write how you want to feel, like 'a warm hug from a close friend'. The more detail, the better."
+            />
+          </span>
           <div
             className="input-box"
             onClick={() => document.getElementById('mood-input')?.focus()}
@@ -326,7 +399,7 @@ function App() {
             <img src={SearchIcon} alt="search" />
             <input
               id="mood-input"
-              placeholder="dark and tense, warm and cozy…"
+              placeholder="a warm hug from a close friend…"
               value={moodValue}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setMoodValue(e.target.value)}
               onKeyDown={handleSearch}
@@ -510,7 +583,7 @@ function App() {
             like "space travel" or "warm and nostalgic."
           </div>
         ) : (
-          movies.map((movie, i) => (
+          movies.slice(0, visibleCount).map((movie, i) => (
             <div
               className={`movie-item`}
               key={`${movie.title}-${i}`}
@@ -527,52 +600,53 @@ function App() {
               <div className="movie-info">
                 <div className="movie-title-row">
                   <h2 className="movie-title">{movie.title}</h2>
-                  <div className="movie-score">{Math.round(movie.score * 100)}% match</div>
-                </div>
-
-                <div className="movie-subtitle">
-                  <span className="movie-details">
-                    {[
-                      ...(movie.genre ? movie.genre.split(',').slice(0, 2).map((g) => g.trim()) : []),
-                      movie.runtime ? formatRuntime(movie.runtime) : null,
-                      movie.releaseYear != null ? String(movie.releaseYear) : null,
-                    ].filter(Boolean).join(' · ')}
-                  </span>
-                </div>
-
-                {(movie.imdbScore != null || movie.rtScore != null) && (
-                  <div className="movie-scores">
-                    {movie.imdbScore != null && (
-                      <span className="score-item score-imdb">
-                        <span className="score-label">IMDb</span>
-                        <span className="score-value">{movie.imdbScore}</span>
-                      </span>
-                    )}
-                    {movie.rtScore != null && (
-                      <span className="score-item score-rt">
-                        <span className="score-label">RT</span>
-                        <span className="score-value">{movie.rtScore}%</span>
-                      </span>
-                    )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                    {llmSuccess && <span className="llm-badge">AI filtered</span>}
+                    <div className="movie-score">{Math.round(movie.score * 100)}% match</div>
                   </div>
-                )}
+                </div>
 
-                {movie.director && <p className="movie-director">Dir. {movie.director}</p>}
+                <p className="movie-details">
+                  {[
+                    ...(movie.genre ? movie.genre.split(',').slice(0, 2).map((g) => g.trim()) : []),
+                    movie.runtime ? formatRuntime(movie.runtime) : null,
+                    movie.releaseYear != null ? String(movie.releaseYear) : null,
+                  ].filter(Boolean).join(' · ')}
+                </p>
 
-                {movie.actors && (
-                  <p className="movie-actors">
-                    {movie.actors.split(',').slice(0, 3).map((a) => a.trim()).join(', ')}
+                {(movie.director || movie.actors) && (
+                  <p className="movie-meta">
+                    {[
+                      movie.director ? `Dir. ${movie.director}` : null,
+                      movie.actors ? movie.actors.split(',').slice(0, 3).map((a) => a.trim()).join(', ') : null,
+                    ].filter(Boolean).join(' · ')}
                   </p>
                 )}
 
-                {(movie.plot || movie.reason) && (
-                  <p className="movie-desc">{movie.plot || movie.reason}</p>
+                {(movie.imdbScore != null || movie.rtScore != null) && (
+                  <p className="movie-scores-line">
+                    {movie.imdbScore != null && (
+                      <span style={{ color: '#fbbf24' }}>IMDb {movie.imdbScore}</span>
+                    )}
+                    {movie.imdbScore != null && movie.rtScore != null && <span className="movie-scores-sep"> · </span>}
+                    {movie.rtScore != null && (
+                      <span style={{ color: '#f87171' }}>RT {movie.rtScore}%</span>
+                    )}
+                  </p>
                 )}
 
-                <div className="card-hint">Click to see emotion breakdown</div>
+                {movie.plot && <><div className="card-divider" /><p className="movie-desc">{movie.plot}</p></>}
+
+                {movie.reason && <p className="movie-reason">{movie.reason}</p>}
+
               </div>
             </div>
           ))
+        )}
+        {movies.length > visibleCount && (
+          <button className="load-more-btn" onClick={() => setVisibleCount((c) => c + 20)}>
+            Load more
+          </button>
         )}
       </div>
 
@@ -580,7 +654,6 @@ function App() {
       {selectedMovie && (
         <div className="modal-backdrop" onClick={() => setSelectedMovie(null)}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => setSelectedMovie(null)}>✕</button>
 
             <div className="modal-header">
               {selectedMovie.tconst && (
@@ -594,44 +667,46 @@ function App() {
               <div className="modal-meta">
                 <div className="modal-title-row">
                   <h2 className="modal-title">{selectedMovie.title}</h2>
-                  <div className="movie-score">{Math.round(selectedMovie.score * 100)}% match</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                    {llmSuccess && <span className="llm-badge">AI filtered</span>}
+                    <div className="movie-score">{Math.round(selectedMovie.score * 100)}% match</div>
+                  </div>
                 </div>
 
-                <div className="movie-subtitle">
-                  <span className="movie-details">
+                <p className="movie-details">
+                  {[
+                    ...(selectedMovie.genre ? selectedMovie.genre.split(',').slice(0, 2).map((g) => g.trim()) : []),
+                    selectedMovie.runtime ? formatRuntime(selectedMovie.runtime) : null,
+                    selectedMovie.releaseYear != null ? String(selectedMovie.releaseYear) : null,
+                  ].filter(Boolean).join(' · ')}
+                </p>
+
+                {(selectedMovie.director || selectedMovie.actors) && (
+                  <p className="movie-meta">
                     {[
-                      ...(selectedMovie.genre ? selectedMovie.genre.split(',').map((g) => g.trim()) : []),
-                      selectedMovie.runtime ? formatRuntime(selectedMovie.runtime) : null,
-                      selectedMovie.releaseYear != null ? String(selectedMovie.releaseYear) : null,
+                      selectedMovie.director ? `Dir. ${selectedMovie.director}` : null,
+                      selectedMovie.actors ? selectedMovie.actors.split(',').slice(0, 3).map((a) => a.trim()).join(', ') : null,
                     ].filter(Boolean).join(' · ')}
-                  </span>
-                </div>
+                  </p>
+                )}
 
                 {(selectedMovie.imdbScore != null || selectedMovie.rtScore != null) && (
-                  <div className="movie-scores">
+                  <p className="movie-scores-line">
                     {selectedMovie.imdbScore != null && (
-                      <span className="score-item score-imdb">
-                        <span className="score-label">IMDb</span>
-                        <span className="score-value">{selectedMovie.imdbScore}</span>
-                      </span>
+                      <span style={{ color: '#fbbf24' }}>IMDb {selectedMovie.imdbScore}</span>
                     )}
+                    {selectedMovie.imdbScore != null && selectedMovie.rtScore != null && <span className="movie-scores-sep"> · </span>}
                     {selectedMovie.rtScore != null && (
-                      <span className="score-item score-rt">
-                        <span className="score-label">RT</span>
-                        <span className="score-value">{selectedMovie.rtScore}%</span>
-                      </span>
+                      <span style={{ color: '#f87171' }}>RT {selectedMovie.rtScore}%</span>
                     )}
-                  </div>
+                  </p>
                 )}
 
-                {selectedMovie.director && (
-                  <p className="movie-director">Dir. {selectedMovie.director}</p>
+                {selectedMovie.plot && (
+                  <><div className="card-divider" /><p className="modal-plot">{selectedMovie.plot}</p></>
                 )}
-                {selectedMovie.actors && (
-                  <p className="movie-actors">{selectedMovie.actors}</p>
-                )}
-                {(selectedMovie.plot || selectedMovie.reason) && (
-                  <p className="modal-plot">{selectedMovie.plot || selectedMovie.reason}</p>
+                {selectedMovie.reason && (
+                  <p className="modal-reason">{selectedMovie.reason}</p>
                 )}
               </div>
             </div>
@@ -641,6 +716,7 @@ function App() {
                 <RadarChart queryEmotions={queryEmotions} movieEmotions={selectedMovie.emotions} />
               </div>
             )}
+
           </div>
         </div>
       )}
