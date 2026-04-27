@@ -126,8 +126,8 @@ def movie_search_(films, topic, text, request, llm_pipeline=False):
     results = []
     for r_tconst, r in candidates.items():
         genres  = films[r_tconst]["genres"]
-        runtime = films[r_tconst]["runtime"]
-        year    = films[r_tconst]["year"]
+        runtime = int(films[r_tconst]["runtime"])
+        year    = int(films[r_tconst]["year"])
         imdb    = films[r_tconst]["imdb_avg"]
         rt      = films[r_tconst]["tomatometer"]
 
