@@ -211,6 +211,10 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
   const [filtersDirty, setFiltersDirty] = useState(false)
+  const [augmentedEmotionQuery, setAugmentedEmotionQuery] = useState<string>('')
+  const [augmentedTopicQuery, setAugmentedTopicQuery] = useState<string>('')
+  const [llmSummary, setLlmSummary] = useState<string>('')
+  const [svdEnabled, setSvdEnabled] = useState<boolean>(true)
 
   // Pill filters
   const [genreFilters, setGenreFilters] = useState<string[]>([])
@@ -268,7 +272,7 @@ function App() {
     setLoading(true)
     try {
       const params = new URLSearchParams()
-      if (topic.trim()) params.append('topic', topic.trim())
+      if (topic.trim() && svdEnabled) params.append('topic', topic.trim())
       if (mood.trim()) params.append('title', mood.trim())
       genreFilters.forEach((v) => params.append('genre', v))
       if (yearRange[0] > YEAR_MIN) params.append('yearMin', String(yearRange[0]))
@@ -283,6 +287,9 @@ const response = await fetch(`/api/movies?${params.toString()}`)
       const rawResults = Array.isArray(data) ? data : (data.results ?? [])
       setQueryEmotions(Array.isArray(data) ? [] : (data.queryEmotions ?? []))
       setLlmSuccess(typeof data.llm_success === 'boolean' ? data.llm_success : null)
+      setAugmentedEmotionQuery(typeof data.augmented_emotion_query === 'string' ? data.augmented_emotion_query : '')
+      setAugmentedTopicQuery(typeof data.augmented_topic_query === 'string' ? data.augmented_topic_query : '')
+      setLlmSummary(typeof data.summary === 'string' ? data.summary : '')
       if (rawResults.length > 0) {
         const normalized: MovieResult[] = rawResults.map((item: any) => ({
           title: item.title ?? 'Unknown Title',
@@ -324,6 +331,9 @@ const response = await fetch(`/api/movies?${params.toString()}`)
       setMovies([])
       setHasSearched(false)
       setFiltersDirty(false)
+      setAugmentedEmotionQuery('')
+      setAugmentedTopicQuery('')
+      setLlmSummary('')
     }
   }, [topicValue, moodValue])
 
@@ -409,7 +419,41 @@ const response = await fetch(`/api/movies?${params.toString()}`)
         </div>
       </div>
 
+      {useLlm && (augmentedEmotionQuery || augmentedTopicQuery) && (
+        <div className="augmented-query-banner">
+          <span className="augmented-query-label">AI refined your search →</span>
+          {augmentedTopicQuery && augmentedTopicQuery !== topicValue && (
+            <span className="augmented-query-item">
+              <span className="augmented-query-field">about:</span> {augmentedTopicQuery}
+            </span>
+          )}
+          {augmentedEmotionQuery && augmentedEmotionQuery !== moodValue && (
+            <span className="augmented-query-item">
+              <span className="augmented-query-field">feels like:</span> {augmentedEmotionQuery}
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="filter-panel">
+        {/* SVD toggle */}
+        <div className="filter-row">
+          <span className="filter-label">
+            SVD
+            <InfoTip
+              title="SVD / Topic Modeling"
+              body="When ON, your topic query is processed through Singular Value Decomposition to match films by latent subject matter and not just keywords. Turn OFF to use emotion-only search and compare the difference."
+            />
+          </span>
+          <button
+            className={`svd-toggle${svdEnabled ? ' svd-toggle--on' : ''}`}
+            onClick={() => setSvdEnabled((v) => !v)}
+            aria-pressed={svdEnabled}
+          >
+            {svdEnabled ? 'ON' : 'OFF'}
+          </button>
+        </div>
+
         {/* Genre — pills */}
         <div className="filter-row">
           <span className="filter-label">Genre</span>
@@ -584,7 +628,24 @@ const response = await fetch(`/api/movies?${params.toString()}`)
             like "space travel" or "warm and nostalgic."
           </div>
         ) : (
-          movies.slice(0, visibleCount).map((movie, i) => (
+          <>
+          {useLlm && llmSuccess && llmSummary && (
+            <div className="llm-summary-banner">
+              <span className="llm-summary-icon">✦</span>
+              <p className="llm-summary-text">{llmSummary}</p>
+            </div>
+          )}
+          <div className="results-rank-line">
+            Ranked by emotional similarity
+            {svdEnabled && topicValue.trim() && (
+              <span className="svd-active-badge">+ SVD</span>
+            )}
+            <InfoTip
+              title="% Match Score"
+              body="The match percentage is the cosine similarity between your query's emotion/SVD vector and each film's vector. 100% means a perfect directional match in the embedding space."
+            />
+          </div>
+          {movies.slice(0, visibleCount).map((movie, i) => (
             <div
               className={`movie-item`}
               key={`${movie.title}-${i}`}
@@ -642,7 +703,8 @@ const response = await fetch(`/api/movies?${params.toString()}`)
 
               </div>
             </div>
-          ))
+          ))}
+          </>
         )}
         {movies.length > visibleCount && (
           <button className="load-more-btn" onClick={() => setVisibleCount((c) => c + 20)}>

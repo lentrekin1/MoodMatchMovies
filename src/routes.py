@@ -14,8 +14,8 @@ from search import movie_search_
 from llm import llm_search
 
 # ── AI toggle ────────────────────────────────────────────────────────────────
-# USE_LLM = False
 USE_LLM = True
+# USE_LLM = False
 # ─────────────────────────────────────────────────────────────────────────────
 
 current_directory = os.path.dirname(os.path.abspath(__file__))

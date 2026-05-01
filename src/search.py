@@ -125,21 +125,23 @@ def movie_search_(films, topic, text, request, llm_pipeline=False):
 
     results = []
     for r_tconst, r in candidates.items():
-        genres  = films[r_tconst]["genres"]
-        runtime = int(films[r_tconst]["runtime"])
-        year    = int(films[r_tconst]["year"])
-        imdb    = films[r_tconst]["imdb_avg"]
-        rt      = films[r_tconst]["tomatometer"]
+        genres      = films[r_tconst]["genres"]
+        raw_runtime = films[r_tconst]["runtime"]
+        raw_year    = films[r_tconst]["year"]
+        runtime     = int(raw_runtime) if raw_runtime is not None else None
+        year        = int(raw_year)    if raw_year    is not None else None
+        imdb        = films[r_tconst]["imdb_avg"]
+        rt          = films[r_tconst]["tomatometer"]
 
         if genre_filters and not any(g.lower() in genres.lower() for g in genre_filters):
             continue
-        if year_min is not None and year < year_min:
+        if year_min is not None and (year is None or year < year_min):
             continue
-        if year_max is not None and year > year_max:
+        if year_max is not None and (year is None or year > year_max):
             continue
-        if runtime_min is not None and runtime < runtime_min:
+        if runtime_min is not None and (runtime is None or runtime < runtime_min):
             continue
-        if runtime_max is not None and runtime > runtime_max:
+        if runtime_max is not None and (runtime is None or runtime > runtime_max):
             continue
         if imdb_min is not None and (imdb is None or imdb < imdb_min):
             continue

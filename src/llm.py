@@ -132,6 +132,34 @@ def llm_search(request, films):
                 matches.append(original_entry)
         ir_response["llm_success"] = True
         ir_response["results"] = matches
+
+        summary = ""
+        if matches:
+            summary_input = json.dumps({
+                "matched_movies": [{"title": m["title"], "plot": m["plot"]} for m in matches],
+                "user_emotion_query": emotion,
+                "user_topic_query": topic
+            })
+            summary_messages = [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are summarizing a set of movies returned by a search. "
+                        "Write 2-3 sentences describing what these films have in common — "
+                        "shared themes, tone, emotional quality, or subject matter — in a way "
+                        "that helps the user understand why these films were recommended together. "
+                        "Do not list individual film titles. Write in plain prose. Be concise."
+                    )
+                },
+                {"role": "user", "content": summary_input}
+            ]
+            try:
+                summary_resp = client.chat(summary_messages)
+                summary = (summary_resp.get("content") or "").strip()
+            except Exception as sum_e:
+                print(f"Summary generation failed: {sum_e}")
+        ir_response["summary"] = summary
+
     except Exception as e: # Malformatted json
         print(f"Exception Type: {type(e).__name__}, Message: {e}")
         ir_response["llm_success"] = False

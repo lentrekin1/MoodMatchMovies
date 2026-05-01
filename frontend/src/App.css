@@ -1000,3 +1000,118 @@
   padding-top: 16px;
 }
 
+/* ── SVD toggle ──────────────────────────────────────────────────────────── */
+
+.svd-toggle {
+  padding: 4px 14px;
+  border-radius: 999px;
+  border: 1px solid #334155;
+  background: transparent;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.svd-toggle--on {
+  background: rgba(110, 231, 183, 0.1);
+  border-color: rgba(110, 231, 183, 0.35);
+  color: #6ee7b7;
+}
+
+.svd-toggle:hover {
+  border-color: #6ee7b7;
+  color: #6ee7b7;
+}
+
+/* ── Augmented query banner ──────────────────────────────────────────────── */
+
+.augmented-query-banner {
+  width: 720px;
+  max-width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 12px;
+  padding: 8px 16px;
+  background: rgba(167, 139, 250, 0.06);
+  border: 1px solid rgba(167, 139, 250, 0.2);
+  border-radius: 10px;
+  margin-top: 8px;
+  font-size: 0.78rem;
+}
+
+.augmented-query-label {
+  color: #a78bfa;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.augmented-query-item {
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+.augmented-query-field {
+  color: #64748b;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-right: 3px;
+}
+
+/* ── LLM summary banner ──────────────────────────────────────────────────── */
+
+.llm-summary-banner {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: linear-gradient(135deg, rgba(167, 139, 250, 0.08) 0%, rgba(96, 165, 250, 0.05) 100%);
+  border: 1px solid rgba(167, 139, 250, 0.22);
+  border-radius: 14px;
+  padding: 16px 20px;
+  margin-bottom: 8px;
+}
+
+.llm-summary-icon {
+  color: #a78bfa;
+  font-size: 1rem;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.llm-summary-text {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #cbd5e1;
+  line-height: 1.65;
+}
+
+/* ── Results rank line ───────────────────────────────────────────────────── */
+
+.results-rank-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.72rem;
+  color: #475569;
+  letter-spacing: 0.03em;
+  padding: 0 2px;
+  margin-bottom: 8px;
+}
+
+.svd-active-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  color: #6ee7b7;
+  background: rgba(110, 231, 183, 0.1);
+  border: 1px solid rgba(110, 231, 183, 0.22);
+  border-radius: 999px;
+  padding: 1px 7px;
+  text-transform: uppercase;
+}
